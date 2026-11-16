@@ -1,0 +1,68 @@
+# An autoscaling worker pool for the mirage-quickstart cluster.
+#
+# The min/max annotations make cluster-autoscaler (clusterapi mode) treat this
+# MachineDeployment as a node group. The capacity annotations let it reason
+# about a node's size WITHOUT an existing node (scale-from-zero) and, crucially,
+# tell it that Mirage nodes carry the mirage.cluster.x-k8s.io/fake NoSchedule
+# taint — so it only scales up for pods that tolerate that taint.
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: MachineDeployment
+metadata:
+  name: mirage-as
+  namespace: default
+  annotations:
+    cluster.x-k8s.io/cluster-api-autoscaler-node-group-min-size: "1"
+    cluster.x-k8s.io/cluster-api-autoscaler-node-group-max-size: "6"
+    # scale-from-zero / scheduling-simulation hints:
+    capacity.cluster-autoscaler.kubernetes.io/cpu: "4"
+    capacity.cluster-autoscaler.kubernetes.io/memory: "8Gi"
+    capacity.cluster-autoscaler.kubernetes.io/maxPods: "110"
+    capacity.cluster-autoscaler.kubernetes.io/taints: "mirage.cluster.x-k8s.io/fake=true:NoSchedule"
+    capacity.cluster-autoscaler.kubernetes.io/labels: "pool=mirage-as"
+spec:
+  clusterName: mirage-quickstart
+  replicas: 1
+  selector:
+    matchLabels:
+      pool: mirage-as
+  template:
+    metadata:
+      labels:
+        pool: mirage-as
+        cluster.x-k8s.io/cluster-name: mirage-quickstart
+    spec:
+      clusterName: mirage-quickstart
+      version: v1.34.0
+      bootstrap:
+        configRef:
+          apiGroup: bootstrap.cluster.x-k8s.io
+          kind: MirageConfigTemplate
+          name: mirage-as
+      infrastructureRef:
+        apiGroup: infrastructure.cluster.x-k8s.io
+        kind: MirageMachineTemplate
+        name: mirage-as
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: MirageMachineTemplate
+metadata:
+  name: mirage-as
+  namespace: default
+spec:
+  template:
+    spec:
+      nodeCPU: "4"
+      nodeMemory: 8Gi
+      nodePods: "110"
+      nodeLabels:
+        pool: mirage-as
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha1
+kind: MirageConfigTemplate
+metadata:
+  name: mirage-as
+  namespace: default
+spec:
+  template:
+    spec:
+      extraData: role=worker-autoscaled

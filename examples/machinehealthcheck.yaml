@@ -1,0 +1,31 @@
+# MachineHealthCheck over the worker MachineDeployment.
+#
+# Reconciled by CAPI core's MachineHealthCheck controller. When a worker's fake
+# Node reports Ready=False for longer than the timeout, the Machine is deleted;
+# the MachineSet then provisions a replacement (new MirageMachine + fake Node).
+#
+# Demonstrate remediation by faulting one worker node:
+#   N=$(kubectl get machine -l pool=md-0 -o jsonpath='{.items[0].status.nodeRef.name}')
+#   kubectl annotate node "$N" mirage.cluster.x-k8s.io/unhealthy=true
+#
+# Within ~timeout the faulted Machine is deleted and a replacement appears:
+#   kubectl get machines -l pool=md-0 -w
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: MachineHealthCheck
+metadata:
+  name: mirage-quickstart-md-0
+  namespace: default
+spec:
+  clusterName: mirage-quickstart
+  selector:
+    matchLabels:
+      pool: md-0
+  checks:
+    nodeStartupTimeoutSeconds: 120
+    unhealthyNodeConditions:
+    - type: Ready
+      status: "False"
+      timeoutSeconds: 30
+    - type: Ready
+      status: Unknown
+      timeoutSeconds: 30

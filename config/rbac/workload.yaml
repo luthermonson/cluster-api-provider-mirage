@@ -1,0 +1,33 @@
+# The "workload" identity. Because Mirage fakes the workload cluster AS the
+# management cluster, the kubeconfig Mirage publishes authenticates as this
+# ServiceAccount. The Cluster API core controllers (and a cluster-autoscaler in
+# clusterapi mode) use that kubeconfig to read Nodes/Pods, resolve NodeRefs, and
+# drain/annotate the fake Nodes. cluster-admin keeps the fake simple.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mirage-workload
+  namespace: system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mirage-workload-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: mirage-workload
+  namespace: system
+---
+# A long-lived (non-expiring) token so the published kubeconfig stays valid.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mirage-workload-token
+  namespace: system
+  annotations:
+    kubernetes.io/service-account.name: mirage-workload
+type: kubernetes.io/service-account-token

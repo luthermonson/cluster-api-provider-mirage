@@ -1,0 +1,100 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  labels:
+    cluster.x-k8s.io/v1beta2: v1alpha1
+  name: mirageclustertemplates.infrastructure.cluster.x-k8s.io
+spec:
+  group: infrastructure.cluster.x-k8s.io
+  names:
+    categories:
+    - cluster-api
+    kind: MirageClusterTemplate
+    listKind: MirageClusterTemplateList
+    plural: mirageclustertemplates
+    singular: mirageclustertemplate
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: MirageClusterTemplate is a template for MirageClusters (ClusterClass
+          support).
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: MirageClusterTemplateSpec defines a MirageCluster template.
+            properties:
+              template:
+                description: MirageClusterTemplateResource is the templated MirageCluster.
+                properties:
+                  metadata:
+                    type: object
+                  spec:
+                    description: MirageClusterSpec defines the desired state of a
+                      fake infrastructure cluster.
+                    properties:
+                      controlPlaneEndpoint:
+                        description: |-
+                          controlPlaneEndpoint is the endpoint used to contact the (fake) control
+                          plane. If left empty, the MirageCluster controller fabricates one.
+                        properties:
+                          host:
+                            description: host is the hostname on which the API server
+                              is serving.
+                            type: string
+                          port:
+                            description: port is the port on which the API server
+                              is serving.
+                            format: int32
+                            type: integer
+                        type: object
+                      failureDomains:
+                        description: |-
+                          failureDomains is the static set of fake failure domains this cluster
+                          advertises. They are mirrored to status.failureDomains once provisioned.
+                        items:
+                          description: FailureDomain is a fake failure domain exposed
+                            by a MirageCluster.
+                          properties:
+                            controlPlane:
+                              description: controlPlane is true if control plane machines
+                                may be placed here.
+                              type: boolean
+                            name:
+                              description: name is the unique name of the failure
+                                domain.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                    type: object
+                required:
+                - spec
+                type: object
+            required:
+            - template
+            type: object
+        type: object
+    served: true
+    storage: true

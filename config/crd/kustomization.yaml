@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- bases/infrastructure.cluster.x-k8s.io_mirageclusters.yaml
+- bases/infrastructure.cluster.x-k8s.io_mirageclustertemplates.yaml
+- bases/infrastructure.cluster.x-k8s.io_miragemachines.yaml
+- bases/infrastructure.cluster.x-k8s.io_miragemachinetemplates.yaml
+- bases/bootstrap.cluster.x-k8s.io_mirageconfigs.yaml
+- bases/bootstrap.cluster.x-k8s.io_mirageconfigtemplates.yaml
+- bases/controlplane.cluster.x-k8s.io_miragecontrolplanes.yaml
+- bases/controlplane.cluster.x-k8s.io_miragecontrolplanetemplates.yaml

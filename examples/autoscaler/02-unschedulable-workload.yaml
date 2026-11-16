@@ -1,0 +1,47 @@
+# A workload that cannot fit on current capacity, to drive scale-up.
+#
+# Each replica requests 3 CPU and targets Mirage "mirage-as" nodes (4 CPU each,
+# so one pod per node) via a nodeSelector, and tolerates the Mirage fake-node
+# taint. With 5 replicas and a single node to start, 4 pods stay Pending until
+# cluster-autoscaler scales the mirage-as MachineDeployment up and Mirage
+# fake-provisions the extra nodes (on the randomized timeline). Once the fake
+# Nodes register with real allocatable capacity, the scheduler binds the pods
+# and the Mirage fake kubelet marks them Running.
+#
+# Watch the loop:
+#   kubectl get pods -l app=hungry -o wide -w
+#   kubectl get machinedeployment mirage-as -w
+#
+# Scale-down: delete this Deployment; after the idle timers the autoscaler
+# removes the now-idle Mirage nodes (Machines deleted, down to min-size=1).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hungry
+  namespace: default
+  labels:
+    app: hungry
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: hungry
+  template:
+    metadata:
+      labels:
+        app: hungry
+    spec:
+      nodeSelector:
+        pool: mirage-as
+      tolerations:
+      - key: mirage.cluster.x-k8s.io/fake
+        operator: Exists
+        effect: NoSchedule
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: pause
+        image: registry.k8s.io/pause:3.10
+        resources:
+          requests:
+            cpu: "3"
+            memory: 256Mi

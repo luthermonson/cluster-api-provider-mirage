@@ -1,0 +1,105 @@
+# cluster-autoscaler in Cluster API ("clusterapi") provider mode, pointed at the
+# Mirage MachineDeployments in the management cluster. Because Mirage fakes the
+# workload cluster AS the management cluster, a single in-cluster client serves
+# both roles, so no extra kubeconfig wiring is needed here.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-autoscaler-clusterapi
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "pods", "services", "replicationcontrollers", "persistentvolumeclaims", "persistentvolumes", "namespaces"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["events", "endpoints"]
+  verbs: ["create", "patch"]
+- apiGroups: [""]
+  resources: ["pods/eviction"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses", "csinodes", "csidrivers", "csistoragecapacities", "volumeattachments"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch", "apps"]
+  resources: ["jobs", "daemonsets", "replicasets", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
+  verbs: ["get", "list", "watch"]
+# Cluster API node groups
+- apiGroups: ["cluster.x-k8s.io"]
+  resources: ["machinedeployments", "machinedeployments/scale", "machinesets", "machines", "machinepools", "machinepools/scale"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+# Mirage infra templates — the clusterapi provider reads the referenced
+# InfrastructureMachineTemplate to build the node group's template node
+# (capacity annotations, labels, taints) for scheduling simulation.
+- apiGroups: ["infrastructure.cluster.x-k8s.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-autoscaler-clusterapi
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-autoscaler-clusterapi
+subjects:
+- kind: ServiceAccount
+  name: cluster-autoscaler
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+  labels:
+    app: cluster-autoscaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cluster-autoscaler
+  template:
+    metadata:
+      labels:
+        app: cluster-autoscaler
+    spec:
+      serviceAccountName: cluster-autoscaler
+      containers:
+      - name: cluster-autoscaler
+        image: registry.k8s.io/autoscaling/cluster-autoscaler:v1.34.1
+        command:
+        - /cluster-autoscaler
+        args:
+        - --cloud-provider=clusterapi
+        - --node-group-auto-discovery=clusterapi:namespace=default
+        - --namespace=kube-system
+        - --scale-down-enabled=true
+        - --scale-down-delay-after-add=30s
+        - --scale-down-unneeded-time=30s
+        - --scale-down-candidates-pool-ratio=1.0
+        - --scan-interval=10s
+        - --max-node-provision-time=5m
+        - --skip-nodes-with-system-pods=false
+        - --skip-nodes-with-local-storage=false
+        - --balance-similar-node-groups=false
+        - --enforce-node-group-min-size=true
+        - --v=2
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi

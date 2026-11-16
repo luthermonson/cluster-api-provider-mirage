@@ -1,0 +1,212 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  labels:
+    cluster.x-k8s.io/v1beta2: v1alpha1
+  name: mirageclusters.infrastructure.cluster.x-k8s.io
+spec:
+  group: infrastructure.cluster.x-k8s.io
+  names:
+    categories:
+    - cluster-api
+    kind: MirageCluster
+    listKind: MirageClusterList
+    plural: mirageclusters
+    singular: miragecluster
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.initialization.provisioned
+      name: Ready
+      type: string
+    - jsonPath: .spec.controlPlaneEndpoint.host
+      name: Endpoint
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: MirageCluster is a fake Cluster API infrastructure cluster.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: MirageClusterSpec defines the desired state of a fake infrastructure
+              cluster.
+            properties:
+              controlPlaneEndpoint:
+                description: |-
+                  controlPlaneEndpoint is the endpoint used to contact the (fake) control
+                  plane. If left empty, the MirageCluster controller fabricates one.
+                properties:
+                  host:
+                    description: host is the hostname on which the API server is serving.
+                    type: string
+                  port:
+                    description: port is the port on which the API server is serving.
+                    format: int32
+                    type: integer
+                type: object
+              failureDomains:
+                description: |-
+                  failureDomains is the static set of fake failure domains this cluster
+                  advertises. They are mirrored to status.failureDomains once provisioned.
+                items:
+                  description: FailureDomain is a fake failure domain exposed by a
+                    MirageCluster.
+                  properties:
+                    controlPlane:
+                      description: controlPlane is true if control plane machines
+                        may be placed here.
+                      type: boolean
+                    name:
+                      description: name is the unique name of the failure domain.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+            type: object
+          status:
+            description: MirageClusterStatus defines the observed state of a MirageCluster.
+            properties:
+              conditions:
+                description: conditions is the standard Cluster API v1beta2 condition
+                  set.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              deletionStartedAt:
+                description: deletionStartedAt records when the fake teardown timer
+                  started.
+                format: date-time
+                type: string
+              failureDomains:
+                description: failureDomains is the Cluster API contract list of failure
+                  domains.
+                items:
+                  description: FailureDomain is a fake failure domain exposed by a
+                    MirageCluster.
+                  properties:
+                    controlPlane:
+                      description: controlPlane is true if control plane machines
+                        may be placed here.
+                      type: boolean
+                    name:
+                      description: name is the unique name of the failure domain.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              initialization:
+                description: initialization reports the Cluster API contract provisioning
+                  signal.
+                properties:
+                  provisioned:
+                    description: |-
+                      provisioned is true when the fake infrastructure has finished
+                      provisioning. This is the v1beta2 Cluster API contract field.
+                    type: boolean
+                type: object
+              phase:
+                description: |-
+                  phase is the fake lifecycle phase: Pending, Provisioning, Provisioned,
+                  Deleting.
+                type: string
+              provisioningStartedAt:
+                description: provisioningStartedAt records when the fake provisioning
+                  timer started.
+                format: date-time
+                type: string
+              ready:
+                description: ready is a human-friendly mirror of initialization.provisioned.
+                type: boolean
+              targetProvisioningSeconds:
+                description: |-
+                  targetProvisioningSeconds is the randomized duration chosen for this
+                  object's fake provisioning. The object stays Provisioning until this
+                  many seconds have elapsed since provisioningStartedAt.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
