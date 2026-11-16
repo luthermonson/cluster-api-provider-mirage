@@ -14,8 +14,13 @@ metadata:
   name: cluster-autoscaler-clusterapi
 rules:
 - apiGroups: [""]
-  resources: ["nodes", "pods", "services", "replicationcontrollers", "persistentvolumeclaims", "persistentvolumes", "namespaces"]
+  resources: ["pods", "services", "replicationcontrollers", "persistentvolumeclaims", "persistentvolumes", "namespaces"]
   verbs: ["get", "list", "watch"]
+# nodes: the autoscaler taints a node (ToBeDeletedByClusterAutoscaler) before
+# draining it during scale-down, so it needs update/patch.
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch", "update", "patch"]
 - apiGroups: [""]
   resources: ["events", "endpoints"]
   verbs: ["create", "patch"]
