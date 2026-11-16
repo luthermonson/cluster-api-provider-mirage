@@ -1,0 +1,127 @@
+# Flagship Mirage cluster: a full CAPI cluster-creation lifecycle, all faked.
+#
+#   Cluster ─ infrastructureRef ─▶ MirageCluster   (fake infra cluster)
+#           └ controlPlaneRef ───▶ MirageControlPlane (3 fake CP machines)
+#                                     └ machineTemplate ─▶ MirageMachineTemplate (cp)
+#   MachineDeployment (3 workers)
+#     ├ infrastructureRef ─▶ MirageMachineTemplate (workers)
+#     └ bootstrap.configRef ─▶ MirageConfigTemplate (workers)
+#
+# Apply, then watch:
+#   kubectl get cluster,miragecluster,miragecontrolplane,machinedeployment,machine -w
+#
+# Expected timeline (fast profile, seconds):
+#   MirageCluster: Pending → Provisioning (held) → Provisioned  (sets endpoint)
+#   Cluster.status.infrastructureReady = true
+#   MirageControlPlane creates 3 Machines; each: bootstrap → VM → node → NodeRef
+#   Cluster.status.controlPlaneReady = true ; Cluster phase → Provisioned
+#   MachineDeployment: 3 Machines reach Running with NodeRefs
+---
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: Cluster
+metadata:
+  name: mirage-flake
+  namespace: default
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks: ["192.168.0.0/16"]
+  controlPlaneRef:
+    apiGroup: controlplane.cluster.x-k8s.io
+    kind: MirageControlPlane
+    name: mirage-flake-cp
+  infrastructureRef:
+    apiGroup: infrastructure.cluster.x-k8s.io
+    kind: MirageCluster
+    name: mirage-flake
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: MirageCluster
+metadata:
+  name: mirage-flake
+  namespace: default
+spec:
+  failureDomains:
+    - name: fd-1
+      controlPlane: true
+    - name: fd-2
+      controlPlane: true
+    - name: fd-3
+      controlPlane: true
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha1
+kind: MirageControlPlane
+metadata:
+  name: mirage-flake-cp
+  namespace: default
+spec:
+  replicas: 3
+  version: v1.34.0
+  machineTemplate:
+    infrastructureRef:
+      apiGroup: infrastructure.cluster.x-k8s.io
+      kind: MirageMachineTemplate
+      name: mirage-flake-cp
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: MirageMachineTemplate
+metadata:
+  name: mirage-flake-cp
+  namespace: default
+spec:
+  template:
+    spec:
+      nodeCPU: "4"
+      nodeMemory: 8Gi
+      nodePods: "110"
+---
+apiVersion: cluster.x-k8s.io/v1beta2
+kind: MachineDeployment
+metadata:
+  name: mirage-flake-md-0
+  namespace: default
+spec:
+  clusterName: mirage-flake
+  replicas: 3
+  selector:
+    matchLabels:
+      pool: md-0
+  template:
+    metadata:
+      labels:
+        pool: md-0
+        cluster.x-k8s.io/cluster-name: mirage-flake
+    spec:
+      clusterName: mirage-flake
+      version: v1.34.0
+      bootstrap:
+        configRef:
+          apiGroup: bootstrap.cluster.x-k8s.io
+          kind: MirageConfigTemplate
+          name: mirage-flake-md-0
+      infrastructureRef:
+        apiGroup: infrastructure.cluster.x-k8s.io
+        kind: MirageMachineTemplate
+        name: mirage-flake-md-0
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: MirageMachineTemplate
+metadata:
+  name: mirage-flake-md-0
+  namespace: default
+spec:
+  template:
+    spec:
+      nodeCPU: "4"
+      nodeMemory: 8Gi
+      nodePods: "110"
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha1
+kind: MirageConfigTemplate
+metadata:
+  name: mirage-flake-md-0
+  namespace: default
+spec:
+  template:
+    spec:
+      extraData: role=worker

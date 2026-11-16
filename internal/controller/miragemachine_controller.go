@@ -3,6 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"os"
+	"strconv"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -175,11 +178,46 @@ func (r *MirageMachineReconciler) reconcileNormal(ctx context.Context, mm *infra
 	if err := mirage.EnsureFakeNode(ctx, r.Client, spec); err != nil {
 		return ctrl.Result{}, err
 	}
+	// --- fault injection: opt-in orphan "ghost" Node leak ---
+	// mirage is a fake provider for exercising controllers and the tools that
+	// test them. MIRAGE_GHOST_NODE_RATE=N (percent in [1,100], unset/0 disables)
+	// makes a Node registration occasionally also provision a second, unowned
+	// "ghost" Node — a random, reproducible-in-aggregate infrastructure leak.
+	// It exists to verify that a controller-test oracle catches a genuinely
+	// non-deterministic flake: the one-Node-per-Machine invariant is violated
+	// only on the runs where it fires. Disabled by default, so normal runs
+	// always register exactly one Node per Machine.
+	if rate := ghostNodeFaultRate(); rate > 0 && rand.Intn(100) < rate {
+		ghost := spec
+		ghost.Name = nodeName + "-ghost"
+		ghost.ProviderID = fmt.Sprintf("mirage://%s/%s-ghost", mm.Namespace, mm.Name)
+		if gerr := mirage.EnsureFakeNode(ctx, r.Client, ghost); gerr != nil {
+			logger.Error(gerr, "ghost-node fault: ghost Node creation failed", "ghostNode", ghost.Name)
+		} else {
+			logger.Info("ghost-node fault: leaked an orphan ghost Node", "ghostNode", ghost.Name, "machine", mm.Name)
+		}
+	}
+	// --- end fault injection ---
 	mm.Status.NodeName = nodeName
 	setCondition(&mm.Status.Conditions, mm.Generation, "Ready", metav1.ConditionTrue, "NodeRegistered",
 		fmt.Sprintf("fake node %q registered", nodeName))
 	logger.Info("fake node registered", "node", nodeName)
 	return ctrl.Result{}, nil
+}
+
+// ghostNodeFaultRate returns the opt-in percent chance [0,100] that registering
+// a Node also leaks an orphan "ghost" Node. Set MIRAGE_GHOST_NODE_RATE to enable;
+// unset/0 disables it (the default), so normal runs never leak.
+func ghostNodeFaultRate() int {
+	v, _ := strconv.Atoi(os.Getenv("MIRAGE_GHOST_NODE_RATE"))
+	switch {
+	case v < 0:
+		return 0
+	case v > 100:
+		return 100
+	default:
+		return v
+	}
 }
 
 func (r *MirageMachineReconciler) reconcileDelete(ctx context.Context, mm *infrav1.MirageMachine) (ctrl.Result, error) {
