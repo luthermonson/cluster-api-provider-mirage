@@ -2,7 +2,7 @@
 
 // Package e2e drives the full faked Cluster API lifecycle against a live cluster
 // that already has CAPI core and the Mirage provider deployed (see the README /
-// `make kind-up capi-init dev`). It asserts exactly the timelines litecone's
+// `make kind-up capi-init dev`). It asserts exactly the timelines kourt's
 // oracle cares about: create-to-Ready, scale up/down, and MHC remediation.
 //
 //	go test ./test/e2e/... -tags e2e -v -timeout 20m
